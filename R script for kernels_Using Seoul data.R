@@ -1,21 +1,6 @@
 library( xlsx )
 
-library( readxl )
-library( ggplot2 )
-library( dplyr )
-library( magrittr )
-library( kdensity )
-library( kedd )
-library( ggpmisc )
-library( splus2R )
-library(dirichletprocess)
-library(mixtools)
-
-setwd( "C:/Users/david/OneDrive/Documents/Utrecht University/Mathematics for Industry/Question 4/Seoul" )
-
-source( "functions.r" )
-
-data.all <- read_excel("ELISAoverzichtjuni2019_v2.xlsx", 
+rzichtjuni2019_v2.xlsx", 
                        sheet=1) %>%
   select( OD = ODc2, serumtype =starts_with("serum"), PCR=starts_with( "PCR") ) %>%
   ##colnames( data.all ) <- c(OD= ODc2, Serum.Type= starts_with("serum"), PCR= starts_with("PCR") ) %>%
