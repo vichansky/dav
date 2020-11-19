@@ -1,0 +1,123 @@
+---
+title: "Assignment Exploratory Data Analysis"
+author: "Manousos Emmmanouil Theodosiou [6686311], Group: GG Force"
+date: "19-11-2020"
+output:
+  html_document:
+    df_print: paged
+  pdf_document:
+    latex_engine: pdflatex
+fontsize: 12pt
+urlcolor: blue
+mainfont: Arial
+---
+
+Import Libraries 
+```{r, message=FALSE}
+library(ISLR)
+library(tidyverse)
+library(haven)
+library(gridExtra)
+```
+
+Import dataset from CWUR (Center for World University Rankings).
+```{r}
+cwur_data <- read_csv("data/cwurData.csv")
+head(cwur_data)
+```
+## The dataset
+
+The above dataset comes from the Center for World University Rankings (CWUR), which is an organisation that provides consulting to universities (in this particular case), to achieve higher goals in academia and research. The CWUR has its headquarters in the United Arab Emirates. The above dataset enlists universities out of more than 20,000 universities globally, and provides information about: the ranking globally, ranking nationally, country, quality of education, employment of alumni, publications, influence, citations and of course the score for years 2012-2015.
+
+## Summary statistics
+
+For the summary statistics of the above dataset, I will compare the final score given to universities per country and I will calculate measures of spread (variance), measures of location (mean, median) and max-min score of each country for the years 2012-2015.
+
+### Year 2012
+```{r}
+by_country <- 
+  filter(cwur_data, year == 2012) %>% 
+  group_by(country) %>% 
+  select(institution, country, score)
+
+summarise(by_country, mean_score = mean(score), 
+          variance_score = var(score), min_score = min(score), 
+          max_score = max(score)) %>% 
+  arrange(desc(mean_score))
+```
+
+### Year 2013
+```{r, echo=FALSE}
+by_country <- 
+  filter(cwur_data, year == 2013) %>% 
+  group_by(country) %>% 
+  select(institution, country, score)
+
+summarise(by_country, mean_score = mean(score), 
+          standard_deviation_score = sd(score), min_score = min(score), 
+          max_score = max(score)) %>% 
+  arrange(desc(mean_score))
+```
+
+### Year 2014
+```{r, echo=FALSE}
+by_country <- 
+  filter(cwur_data, year == 2014) %>% 
+  group_by(country) %>% 
+  select(institution, country, score)
+
+summarise(by_country, mean_score = mean(score), 
+          standard_deviation_score = sd(score), min_score = min(score), 
+          max_score = max(score)) %>% 
+  arrange(desc(mean_score))
+```
+
+### Year 2015 
+```{r, echo=FALSE}
+by_country <- 
+  filter(cwur_data, year == 2015) %>% 
+  group_by(country) %>% 
+  select(institution, country, score)
+
+summarise(by_country, mean_score = mean(score), 
+          standard_deviation_score = sd(score), min_score = min(score), 
+          max_score = max(score)) %>% 
+  arrange(desc(mean_score))
+```
+
+## Descriptive plots
+```{r}
+cwur_data %>% group_by(country) %>% summarise(n = length(publications)) %>%
+  top_n(5,n) %>% ungroup() -> d
+
+cwur_data %>% filter(country %in% d$country) %>%
+ggplot(aes(x=country, y=quality_of_faculty, col=country)) + guides(col=FALSE) +
+  geom_boxplot() +  theme_minimal() + coord_flip() + 
+  labs(x="Country", y="Rank by quality of faculty", 
+      title="Rank by quality of faculty") -> plot_1
+
+cwur_data %>% filter(country %in% d$country) %>%
+ggplot(aes(x=country, y=alumni_employment, col=country)) + guides(col=FALSE) +
+  geom_boxplot() +  theme_minimal() + coord_flip() + 
+  labs(x="Country", y="Rank by alumni employment", 
+      title="Rank by alumni employment") -> plot_2
+
+cwur_data %>% filter(country %in% d$country) %>%
+ggplot(aes(x=country, y=quality_of_education, col=country)) + guides(col=FALSE) +
+  geom_boxplot() +  theme_minimal() + coord_flip() + 
+  labs(x="Country", y="Rank by quality of education", 
+      title="Rank by quality of education") -> plot_3
+
+cwur_data %>% filter(country %in% d$country) %>%
+ggplot(aes(x=country, y=citations, col=country)) + guides(col=FALSE) +
+  geom_boxplot() +  theme_minimal() + coord_flip() + 
+  labs(x="Country", y="Rank by citations", 
+      title="Rank by citations") -> plot_4
+grid.arrange(plot_1, plot_2, plot_3, plot_4, ncol=2)
+```
+
+I wanted to visualise the quality of education/citation/faculty/alumni employment for the countries with the best university rankings and for this reason I have used boxplots. In order to fit them well on the grid I used coord_flip() as it was suggested in the lecture notes. Furthermore, to increase the data to ink ratio I have used the theme_minimal(). From the above visualisation, it needs to be considered that the smaller the rank (closer to 0) the better.
+
+
+
+
