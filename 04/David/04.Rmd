@@ -1,0 +1,192 @@
+---
+title: "Assignment: Exploratory Data Analysis"
+author: "David Vichansky"
+date: "20-11-2020"
+mainfont: Garamond
+fontsize: 12pt
+urlcolor: blue
+output: 
+  pdf_document:
+    latex_engine: xelatex
+---
+
+Here is an example file you can write.
+
+First, load the packages:
+
+```{r load_packages}
+
+library(ISLR)
+library(tidyverse)
+library(haven)
+library(readxl)
+library(tinytex)
+library(ggplot2)
+library(scales)
+
+```
+
+Load '.csv' files for CWUR, Shanghai and Times data sets.
+
+```{r 1}
+
+cwur <- read.csv("data/cwurData.csv", header = TRUE)
+shanghai <- read.csv("data/shanghaiData.csv", header = TRUE)
+times <- read.csv("data/timesData.csv", header = TRUE)
+
+```
+
+
+Inspect the data headings to get a feel of what to work on.
+
+``` {r 2}
+
+# cwur
+head(cwur)
+#lapply(cwur, class)
+
+# shanghai
+head(shanghai)
+#lapply(shanghai, class)
+
+# times
+head(times)
+#lapply(times, class)
+
+```
+
+Obtain the range of years for which our data sets cover.
+``` {r 3}
+
+cwur %>% summarise(
+  min = min(year),
+  max = max(year)
+)
+
+shanghai %>% summarise(
+  min = min(year),
+  max = max(year)
+)
+
+times %>% summarise(
+  min = min(year),
+  max = max(year)
+)
+
+```
+
+We would like to work with only a select few columns such as name, county, world ranking, national ranking (when exists), total score and year. Thus create new data frames, whilst renaming the column names to homogenous names. Furthermore, add a column to reflect which data set it is from and filter based on common years (2012-2015) only.
+``` {r 4}
+
+cwur <- cwur %>% 
+  select(world_rank, institution, country, national_rank, score, year) %>% 
+  rename( university_name = institution, total_score = score) %>%
+  filter(year %in% (2012:2015)) %>% 
+  add_column(publication = "cwur")
+
+shanghai <- shanghai %>%
+  select(world_rank, university_name, national_rank, total_score, year) %>%
+  filter(year %in% (2012:2015)) %>%
+  add_column(publication = "shanghai")
+
+times <- times %>%
+  select(world_rank, university_name, country, total_score, year) %>%
+  filter(year %in% (2012:2015)) %>%
+  add_column(publication = "times")
+
+```
+
+We now assume that each university name is stated the same way in all three of our data frames, we do this in order to add ('mutate') the columns which are missing to make all three data frames the same size (identical) by performing an 'inner join'. Note: filter to remove N/A becasue our assumption is not bullet-proof.
+``` {r 5}
+
+shanghai <- shanghai %>%
+  mutate(university_name = cwur$university_name[match(shanghai$university_name, cwur$university_name)]) %>%
+  mutate(country = cwur$country[match(shanghai$university_name, cwur$university_name)]) %>%
+  filter(!is.na(university_name), !is.na(country))
+
+times <- times %>%
+  mutate(university_name = cwur$university_name[match(times$university_name, cwur$university_name)]) %>%
+  mutate(country = cwur$country[match(times$university_name, cwur$university_name)]) %>%
+  add_column(national_rank = NA) %>% # because no such data exists
+  filter(!is.na(university_name), !is.na(country))
+
+```
+
+Now that we are satisfied that our dataframe are of the same (column) size, let us combine them into one giant data frame which would help some of the data analysis/visualisation work we will do later on. Also round the 'total_score' to nearest decimal point.
+```{r 6}
+
+ranking <- rbind(cwur, shanghai, times)
+  
+```
+
+Check the data types in data frame.
+``` {r 7}
+
+lapply(ranking, class)
+
+```
+
+Convert 'world_rank', 'national_rank' and 'total_score' to numerical values.
+``` {r 8}
+ranking <- ranking %>%
+  mutate(world_rank=as.numeric(world_rank)) %>%
+  mutate(national_rank=as.numeric(national_rank)) %>%
+  mutate(total_score=as.numeric(total_score)) 
+
+lapply(ranking,class)
+```
+
+Plot the scores for universities in the Netherlands and rotate the x-axis.
+```{r 9}
+
+ggplot(subset(ranking, country == "Netherlands"),
+       aes(x = university_name, y = total_score, colour = publication)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  geom_point(alpha = 0.8,  position = position_jitter()) +
+  labs(title = "Scatter plots University Total Scores", x = "University", y = "Total Score")
+
+```
+
+Plot the scores for universities in the Netherlands and 'facet_wrap' by publication and year.
+```{r 10}
+
+ggplot(subset(ranking, country == "Netherlands"),
+       aes(x = university_name, y = total_score, colour = publication)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  geom_point(alpha = 0.8,  position = position_jitter()) +
+  labs(title = "Scatter plots University Total Scores", x = "University", y = "Total Score") +
+  facet_wrap(~ publication)
+
+```
+Plot the scores for universities in the Netherlands and 'facet_wrap' by publication.
+```{r 11}
+
+ggplot(subset(ranking, country == "Netherlands"),
+       aes(x = university_name, y = total_score, colour = publication)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  geom_point(alpha = 0.8,  position = position_jitter()) +
+  labs(title = "Scatter plots University Total Scores", x = "University", y = "Total Score") +
+  facet_wrap(~ year)
+
+```
+
+Plot the scores for universities in the Netherlands and 'facet_grid' by publication and year. Note: we perform a 'facet_grid' rather than a 'facet_wrap' here because otherwise the rankings become culuated and the values go over '100'.
+```{r 12}
+
+ggplot(subset(ranking, country == "Netherlands"),
+       aes(x = university_name, y = total_score, colour = publication)) +
+  theme(axis.text.x=element_blank(),
+        axis.title.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+  geom_point(alpha = 0.8,  position = position_jitter()) +
+  labs(title = "Scatter plots University Total Scores", x = "University", y = "Ranking") +
+  facet_wrap(publication ~ year) +
+  xlab(NULL)
+
+```
+
+Firstly, it was important to determine what data we work with. We therefore created new data frames and only included the relevant columns for the name of university, world ranking, national ranking, country, total score and year. However, because the data frames were of different sizes and had different column headings, we renamed certain columns, changed the data types where needed and matched the missing fields from other data frames by matching using the university name.
+
+Secondly, we used rbind() to join the three data frames into one large data frame called 'ranking' in order to plot and compare the three different publications. We had decided to compare the ranking of universities in one country and chose to filter the data by the Netherlands. The rankings had a too much varied scale so we chose to compare the difference we chose the fields 'Total Score' because this was out of '100' so somewhat of a standardised scale.
+
+Thirdly, after comparing the three different publications we watned to also plot the different across years. However, using 'facet_wrap' would "squash" the plots. Therefore we opted for  'facet_grid' instead in order to split by publication & year and had removed the x-axis labels. Thus we had achieved a 3x4 grid of scatter plots which visually looks more appealing.
