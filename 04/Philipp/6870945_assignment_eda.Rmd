@@ -1,0 +1,152 @@
+---
+title: "Assignment 1: EDA"
+author: "GG Force (6870945, )"
+date: "23-11-2020"
+mainfont: Arial
+fontsize: 12pt
+urlcolor: blue
+output: 
+  pdf_document:
+    latex_engine: pdflatex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load_packages}
+library(ISLR)
+library(tidyverse)
+library(GGally)
+```
+
+```{r}
+
+# popular_apps <-
+#   read_csv("data/googleplaystore.csv") %>%
+#   mutate(Downloads = parse_number(Installs)) %>%
+#   filter(Downloads > 500000000) %>%
+#   arrange(-Rating) %>%
+#   distinct(App, .keep_all = TRUE) %>%
+#   select(App,Rating,Category, Downloads)
+# 
+# popular_apps
+```
+
+```{r}
+cwur <- read_csv("data/cwurData.csv")
+times <-  read_csv("data/timesData.csv") %>% 
+  mutate(total_score = as.numeric(total_score)) %>% 
+  mutate(world_rank = as.numeric(world_rank)) %>%
+  drop_na()
+
+View(cwur)
+View(times)
+```
+
+
+
+
+## Explanation of the Data Set
+
+
+For this assignment we have used the World University Ranking data set found on kaggle. (https://www.kaggle.com/mylesoneill/world-university-rankings?select=cwurData.csv)
+
+The data set contains various information about three World University Rankings: The Times Higher Education Ranking, the Shanghai Ranking, and the lesser known Center for World University Rankings. Comparing these different data sets we can see if there are disambiguities in their rankings or if they lean towards specific measures or insitutions.
+
+For simiplicity we generally focused on the CWUR rankings. The Center for World University Rankings (CWUR) organisation enlists more than 20,000 universities globally, and provides information about: the ranking globally, ranking nationally, country, quality of education, employment of alumni, publications, influence, citations and of course the score
+for years 2012-2015. The data was generally well structured and contains only a few NA's in the broad_impact column.
+
+## Tables of Relevant Summary Statistics
+
+Since most of the metrics in this table are rankings, a direct summary of them does not make a lot of sense, however we can take a look at the scores over the years: 
+
+```{r}
+cwur_scores <- cwur %>% 
+  group_by(year) %>%
+  summarise(
+    mean = mean(score),
+    variance = var(score),
+    min = min(score),
+    max = max(score),
+    med = median(score),
+    size = n())
+
+times_scores <- times %>% 
+  group_by(year) %>%
+  summarise(
+    mean = mean(total_score),
+    variance = var(total_score),
+    min = min(total_score),
+    max = max(total_score),
+    med = median(total_score),
+    size = n())
+
+
+
+cwur_scores
+times_scores
+```
+
+
+
+
+
+## Descriptive Plots
+```{r}
+
+
+ggplot(top_cwur, aes(x= score)) +
+  geom_density(alpha = 0.3, fill = "light seagreen", color = NA) +
+  geom_rug() +
+  theme_minimal() +
+  facet_wrap(vars(year))
+
+```
+
+```{r}
+ggcorr(cwur[,-11], method = c("everything", "pearson"), label_alpha = 0.7, hjust =1, label =  "true", layout.exp = 3) +
+  ggplot2::labs(title = "Correlation of various ranking aspects")
+  theme()
+
+```
+
+```{r}
+top_cwur <- cwur %>% 
+  filter( world_rank < 6) %>% 
+  arrange(world_rank)
+
+top_times <- times %>% 
+  filter( world_rank < 6) %>% 
+  arrange(world_rank)
+
+
+```
+
+
+
+```{r}
+
+ggplot(top_cwur, map = aes(x = year, y = world_rank)) +
+  geom_line(aes(colour= institution), size = 2) +
+  geom_point(aes(shape = institution)) +
+  scale_y_continuous(trans = "reverse")
+  #geom_label(aes(x = max_x, y = max_y + 0.1, label = "Peak volume"))
+
+```
+```{r}
+
+ggplot(top_times, map = aes(x = year, y = world_rank)) +
+  geom_line(aes(colour= university_name), size = 1) +
+  geom_point(aes(shape = university_name)) +
+  scale_y_continuous(trans = "reverse")
+
+```
+
+
+
+
+
+
+## Explanation
+
