@@ -1,44 +1,45 @@
 ---
-title: "Assignment 1: EDA"
-author: "GG Force (6870945, )"
+title: 'Assignment 1: EDA'
+author:
+- GG Force
+- Manousos Emmmanouil Theodosiou [6686311]
+- Philipp Schmitz-Justen [6870945]
+- David Vinchansky
+- Koen Berendsen
+- Asher van der Schelde
 date: "23-11-2020"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
 mainfont: Arial
 fontsize: 12pt
 urlcolor: blue
-output: 
-  pdf_document:
-    latex_engine: pdflatex
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 ```
 
 ```{r load_packages}
 library(ISLR)
 library(tidyverse)
 library(GGally)
+library(gridExtra)
 ```
 
-```{r}
-
-# popular_apps <-
-#   read_csv("data/googleplaystore.csv") %>%
-#   mutate(Downloads = parse_number(Installs)) %>%
-#   filter(Downloads > 500000000) %>%
-#   arrange(-Rating) %>%
-#   distinct(App, .keep_all = TRUE) %>%
-#   select(App,Rating,Category, Downloads)
-# 
-# popular_apps
-```
 
 ```{r}
 cwur <- read_csv("data/cwurData.csv")
+
+shanghai <- read.csv("data/shanghaiData.csv")
+
 times <-  read_csv("data/timesData.csv") %>% 
   mutate(total_score = as.numeric(total_score)) %>% 
   mutate(world_rank = as.numeric(world_rank)) %>%
   drop_na()
+
+
 
 View(cwur)
 View(times)
@@ -52,14 +53,15 @@ View(times)
 
 For this assignment we have used the World University Ranking data set found on kaggle. (https://www.kaggle.com/mylesoneill/world-university-rankings?select=cwurData.csv)
 
-The data set contains various information about three World University Rankings: The Times Higher Education Ranking, the Shanghai Ranking, and the lesser known Center for World University Rankings. Comparing these different data sets we can see if there are disambiguities in their rankings or if they lean towards specific measures or insitutions.
+The data set contains information about three World University Rankings: The Times Higher Education Ranking, the Shanghai Ranking, and the lesser known Center for World University Rankings. By comparing these different data sets, we can see if there are disambiguities in their rankings or if they lean towards specific measures or insitutions.
 
 For simiplicity we generally focused on the CWUR rankings. The Center for World University Rankings (CWUR) organisation enlists more than 20,000 universities globally, and provides information about: the ranking globally, ranking nationally, country, quality of education, employment of alumni, publications, influence, citations and of course the score
 for years 2012-2015. The data was generally well structured and contains only a few NA's in the broad_impact column.
 
 ## Tables of Relevant Summary Statistics
 
-Since most of the metrics in this table are rankings, a direct summary of them does not make a lot of sense, however we can take a look at the scores over the years: 
+### Overview
+Since most of the metrics in the CWUR table are rankings, a direct summary of them does not make a lot of sense, however we can take a look at the scores over the years: 
 
 ```{r}
 cwur_scores <- cwur %>% 
@@ -87,16 +89,83 @@ times_scores <- times %>%
 cwur_scores
 times_scores
 ```
+When looking at the progression over the years we see that for CWUR the first two years were much smaller in terms of sample size than the later two years, explaining the difference in variance and mean scores. Meanwhile the metrics remained relatively constant for the times data set across the years.
 
+We can also look at the individual years by country as in the following tables:
 
+### Year 2012
+```{r}
+by_country <- 
+  filter(cwur, year == 2012) %>% 
+  group_by(country) %>% 
+  select(institution, country, score)
 
+summarise(by_country, mean = mean(score),
+    variance = var(score),
+    min = min(score),
+    max = max(score),
+    med = median(score),
+    size = n()) %>% 
+  arrange(desc(mean))
+```
+
+### Year 2013
+```{r, echo=FALSE}
+by_country <- 
+  filter(cwur, year == 2013) %>% 
+  group_by(country) %>% 
+  select(institution, country, score)
+
+summarise(by_country, mean = mean(score),
+    variance = var(score),
+    min = min(score),
+    max = max(score),
+    med = median(score),
+    size = n()) %>% 
+  arrange(desc(mean))
+```
+
+### Year 2014
+```{r, echo=FALSE}
+by_country <- 
+  filter(cwur, year == 2014) %>% 
+  group_by(country) %>% 
+  select(institution, country, score)
+
+summarise(by_country, mean = mean(score),
+    variance = var(score),
+    min = min(score),
+    max = max(score),
+    med = median(score),
+    size = n()) %>% 
+  arrange(desc(mean))
+```
+
+### Year 2015 
+```{r, echo=FALSE}
+by_country <- 
+  filter(cwur, year == 2015) %>% 
+  group_by(country) %>% 
+  select(institution, country, score)
+
+summarise(by_country, mean = mean(score),
+    variance = var(score),
+    min = min(score),
+    max = max(score),
+    med = median(score),
+    size = n()) %>% 
+  arrange(desc(mean))
+```
+
+Again we see that there are no real outliers, probably due to the way the data was constructed, as very bad universities would not be included in the ranking at all. The variance varies across countries based on the sample size.
 
 
 ## Descriptive Plots
+
 ```{r}
 
 
-ggplot(top_cwur, aes(x= score)) +
+ggplot(cwur, aes(x= score)) +
   geom_density(alpha = 0.3, fill = "light seagreen", color = NA) +
   geom_rug() +
   theme_minimal() +
@@ -104,12 +173,17 @@ ggplot(top_cwur, aes(x= score)) +
 
 ```
 
+In this chart we see that most of the universities have lower scores, especially with the larger samples 2014 and 2015.
+
+
 ```{r}
 ggcorr(cwur[,-11], method = c("everything", "pearson"), label_alpha = 0.7, hjust =1, label =  "true", layout.exp = 3) +
   ggplot2::labs(title = "Correlation of various ranking aspects")
-  theme()
 
 ```
+
+This correlation heat map shows us that certain factors are very strongly correlated such as publications, influence and world rank, while others such as national rank seem not to correlate strongly with the world_rank.
+
 
 ```{r}
 top_cwur <- cwur %>% 
@@ -131,7 +205,6 @@ ggplot(top_cwur, map = aes(x = year, y = world_rank)) +
   geom_line(aes(colour= institution), size = 2) +
   geom_point(aes(shape = institution)) +
   scale_y_continuous(trans = "reverse")
-  #geom_label(aes(x = max_x, y = max_y + 0.1, label = "Peak volume"))
 
 ```
 ```{r}
@@ -143,10 +216,128 @@ ggplot(top_times, map = aes(x = year, y = world_rank)) +
 
 ```
 
+These two line charts nicely show the discrepancies between the top five schools in the two different rankings.
+
+Next we wanted to visualise the quality of education/citation/faculty/alumni employment for the countries with the best university rankings and used boxplots for this. In order to fit them well on the grid we used coord_flip() as it was suggested in the lecture notes. Furthermore, to increase the data to ink ratio we have used the theme_minimal(). For the visualisation, it needs to be considered that the smaller the rank (closer to 0) the better.
 
 
+```{r}
+cwur %>% group_by(country) %>% summarise(n = length(publications)) %>%
+  top_n(5,n) %>% ungroup() -> d
+
+cwur %>% filter(country %in% d$country) %>%
+ggplot(aes(x=country, y=quality_of_faculty, col=country)) + guides(col=FALSE) +
+  geom_boxplot() +  theme_minimal() + coord_flip() + 
+  scale_y_continuous(trans = "reverse") +
+  labs(x="Country", y="Rank by quality of faculty", 
+      title="Rank by quality of faculty") -> plot_1
+
+cwur %>% filter(country %in% d$country) %>%
+ggplot(aes(x=country, y=alumni_employment, col=country)) + guides(col=FALSE) +
+  geom_boxplot() +  theme_minimal() + coord_flip() + 
+  scale_y_continuous(trans = "reverse") +
+  labs(x="Country", y="Rank by alumni employment", 
+      title="Rank by alumni employment") -> plot_2
+
+cwur %>% filter(country %in% d$country) %>%
+ggplot(aes(x=country, y=quality_of_education, col=country)) + guides(col=FALSE) +
+  geom_boxplot() +  theme_minimal() + coord_flip() + 
+  scale_y_continuous(trans = "reverse") +
+  labs(x="Country", y="Rank by quality of education", 
+      title="Rank by quality of education") -> plot_3
+
+cwur %>% filter(country %in% d$country) %>%
+ggplot(aes(x=country, y=citations, col=country)) + guides(col=FALSE) +
+  geom_boxplot() +  theme_minimal() + coord_flip() + 
+  scale_y_continuous(trans = "reverse") +
+  labs(x="Country", y="Rank by citations", 
+      title="Rank by citations") -> plot_4
+grid.arrange(plot_1, plot_2, plot_3, plot_4, ncol=2)
+```
+
+This graph clearly shows us that while most countries are equal in quality of faculty, they diverge on citations and alumni employment, where the US clearly leads the pack.
 
 
+Finally we would like to look at comparing the CWUR and times data set in one visualisation and will proceed as follows:
+
+We would like to work with only a select few columns such as name, county, world ranking, national ranking (when exists), total score and year. Thus we create new data frames, whilst renaming the column names to homogenous names. Furthermore, we add a column to reflect which data set it is from and filter based on common years (2012-2015) only.
+``` {r 4}
+
+cwur <- cwur %>% 
+  select(world_rank, institution, country, national_rank, score, year) %>% 
+  rename( university_name = institution, total_score = score) %>%
+  filter(year %in% (2012:2015)) %>% 
+  add_column(publication = "cwur")
+
+shanghai <- shanghai %>%
+  select(world_rank, university_name, national_rank, total_score, year) %>%
+  filter(year %in% (2012:2015)) %>%
+  add_column(publication = "shanghai")
+
+times <- times %>%
+  select(world_rank, university_name, country, total_score, year) %>%
+  filter(year %in% (2012:2015)) %>%
+  add_column(publication = "times")
+
+```
+
+We now assume that each university name is stated the same way in all three of our data frames, we do this in order to add ('mutate') the columns which are missing to make all three data frames the same size (identical) by performing an 'inner join'. Note: filter to remove N/A because our assumption is not bullet-proof.
+``` {r 5}
+
+shanghai <- shanghai %>%
+  mutate(university_name = cwur$university_name[match(shanghai$university_name, cwur$university_name)]) %>%
+  mutate(country = cwur$country[match(shanghai$university_name, cwur$university_name)]) %>%
+  filter(!is.na(university_name), !is.na(country))
+
+times <- times %>%
+  mutate(university_name = cwur$university_name[match(times$university_name, cwur$university_name)]) %>%
+  mutate(country = cwur$country[match(times$university_name, cwur$university_name)]) %>%
+  add_column(national_rank = NA) %>% # because no such data exists
+  filter(!is.na(university_name), !is.na(country))
+
+```
+
+Now that we are satisfied that our dataframe are of the same (column) size, let us combine them into one giant data frame which would help some of the data analysis/visualisation work we will do later on. Also round the 'total_score' to nearest decimal point.
+```{r 6}
+
+ranking <- rbind(cwur, shanghai, times)
+  
+```
+
+Check the data types in data frame.
+``` {r 7}
+
+lapply(ranking, class)
+
+```
+
+Convert 'world_rank', 'national_rank' and 'total_score' to numerical values.
+``` {r 8}
+ranking <- ranking %>%
+  mutate(world_rank=as.numeric(world_rank)) %>%
+  mutate(national_rank=as.numeric(national_rank)) %>%
+  mutate(total_score=as.numeric(total_score)) 
+
+lapply(ranking,class)
+```
+
+Plot the scores for universities in the Netherlands and rotate the x-axis.
+```{r 9}
+
+ggplot(subset(ranking, country == "Netherlands"),
+       aes(x = university_name, y = total_score, colour = publication)) +
+  geom_point(alpha = 0.8,  position = position_jitter()) +
+  coord_flip() + 
+  labs(title = "Scatter plots University Total Scores", x = "University", y = "Total Score")
+
+```
+
+This visualisation nicely shows the discrepancies in the total score for different rankings. Shanghai clearly consistly ranks Dutch universities lower than both CWUR and times, which seem to often overlap, with times tendentially giving higher scores.
 
 ## Explanation
+The process for looking into the indidivudal data sets was pretty straight forward, but in order to properly compare the rankings it was important to determine what data we work with. We therefore created new data frames and only included the relevant columns for the name of university, world ranking, national ranking, country, total score and year. However, because the data frames were of different sizes and had different column headings, we renamed certain columns, changed the data types where needed and matched the missing fields from other data frames by matching using the university name. Going forward it would make sense to base the  tables and visualisations in the first half of the document on the refined data set used in the later half, however this did not happen due to time constraints and division of labor.
+
+For this EDA Assignment we all took slightly different aprproaches which explains the plethora of different tables and visualisations in this document. Since most of the explanations were placed in the document it suffices to say here that generally there were no real outliers within the individual data sets, but that there was varation between the two rankings as well as between countries in the same ranking. 
+
+
 
