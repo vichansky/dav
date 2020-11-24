@@ -4,14 +4,14 @@ author:
 - GG Force
 - Manousos Emmmanouil Theodosiou [6686311]
 - Philipp Schmitz-Justen [6870945]
-- David Vinchansky
-- Koen Berendsen
-- Asher van der Schelde
+- David Vinchansky [6819516]
+- Koen Berendsen [5985641]
+- Asher van der Schelde [7288018]
 date: "23-11-2020"
 output:
+  pdf_document: default
   html_document:
     df_print: paged
-  pdf_document: default
 mainfont: Arial
 fontsize: 12pt
 urlcolor: blue
