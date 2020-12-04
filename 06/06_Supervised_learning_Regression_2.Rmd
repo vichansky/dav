@@ -1,0 +1,366 @@
+---
+title: "Supervised Learning Regression 2"
+author: "Manousos Emmanouil Theodosiou [6686311]"
+date: "1-12-2020"
+output:
+  html_document:
+    df_print: paged
+  pdf_document:
+    latex_engine: pdflatex
+fontsize: 12pt
+urlcolor: blue
+mainfont: Arial
+---
+
+```{r}
+library(plyr)
+library(ISLR)
+library(glmnet)
+library(tidyverse)
+```
+
+
+1. Prepare a dataframe baseball from the Hitters dataset where you remove the baseball players for which the Salary is missing. How many baseball players are left?
+
+
+
+```{r}
+baseball <- Hitters[!is.na(Hitters$Salary), ]
+count(baseball)
+```
+
+
+
+2. Create baseball_train (50%), baseball_valid (30%), and baseball_test (20%) datasets.
+
+Create vector splits with labels "train", "validation", "test".
+```{r}
+train <- rep("train", times = 131) 
+validation <- rep("validation", times = 79)
+test <- rep("test", times = 53)
+splits <- c(train, validation, test)
+```
+
+
+
+Now I will use the function sample() to randomly order this vector and add it to the Boston dataset using mutate(). Assign the newly created dataset to a variable called boston_master.
+
+```{r}
+baseball_master <- 
+  baseball %>% 
+  mutate(Splits = sample(splits))
+```
+
+
+
+
+Create baseball_train, baseball_valid, and baseball_test datasets
+
+```{r}
+baseball_train <-
+  baseball_master %>% 
+  filter(Splits == "train")
+str(baseball_train)
+```
+
+
+Similarly, for baseball_valid
+
+```{r}
+baseball_valid <-
+  baseball_master %>% 
+  filter(Splits == "validation")
+```
+
+
+
+Similarly, for baseball_test
+
+```{r}
+baseball_test <-
+  baseball_master %>% 
+  filter(Splits == "test")
+```
+
+
+
+3. Create a function called lm_mse() with as inputs (1) a formula, (2) a training dataset, and (3) a test dataset which outputs the mse on the test dataset for predictions from a linear model.
+
+```{r}
+lm_mse <- function(formula, train_data, valid_data) {
+  y_name <- as.character(formula)[2]
+  y_true <- valid_data[[y_name]]
+  lm_ses <- lm(formula, data = train_data)
+  y_pred <- predict(lm_ses, newdata = valid_data)
+  mse <- (1/length(y_pred))*sum((y_true-y_pred)^2)
+  return(mse)
+}
+```
+
+4. Try out your function with the formula Salary ~ Hits + Runs, using baseball_train and baseball_valid.
+
+```{r}
+lm_mse(Salary ~ Hits + Runs, baseball_train, baseball_valid)
+```
+
+```{r}
+source("generate_formulas.R")
+generate_formulas(p = 2, x_vars = c("x1", "x2", "x3", "x4"), y_var = "y")
+```
+
+5. Create a character vector of all predictor variables from the Hitters dataset. colnames() may be of help. Note that Salary is not a predictor variable.
+
+```{r}
+# Salary is the 19th entry,  so I will remove it
+pred_var <- as.character(colnames(Hitters)[-19])
+pred_var
+```
+
+6. Generate all formulas with as outcome Salary and 3 predictors from the Hitters data. Assign this to a variable called formulas. There should be 969 elements in this vector.
+
+```{r}
+formulas_3 <- generate_formulas(p = 3, x_vars = pred_var, y_var = "Salary")
+str(formulas_3)
+```
+
+
+7. Use a for loop to find the best set of 3 predictors in the Hitters dataset based on MSE. Use the baseball_train and baseball_valid datasets.
+
+```{r}
+answer = numeric()
+for (i in formulas_3) {
+  i_formula <- as.formula(i)
+  lm_mse_result <- lm_mse(i_formula, baseball_train, baseball_valid)
+  answer[i] <- lm_mse_result
+}
+min(answer)
+formulas_3[match(min(answer),answer)]
+```
+8. Do the same for 1, 2 and 4 predictors. Now select the best model with 1, 2, 3, or 4 predictors in terms of its out-of-sample MSE
+
+For 1 predictor:
+
+```{r}
+formulas_1 <- generate_formulas(p = 1, x_vars = pred_var, y_var = "Salary")
+str(formulas_1)
+```
+For the out-of-sample MSE I will use only the training dataset: baseball_train (131 observations) and I will split it into two: my training set will be baseball_train[1:100, ] and  my validation set (unseen data) will be baseball_train[101:131, ] 
+
+
+Use a for loop 
+```{r}
+answer = numeric()
+for (i in formulas_1) {
+  i_formula <- as.formula(i)
+  lm_mse_result <- lm_mse(i_formula, baseball_train[1:100, ], baseball_train[101:131, ])
+  answer[i] <- lm_mse_result
+}
+min(answer)
+formulas_1[match(min(answer),answer)]
+```
+
+Similarly for 2 predictors.
+
+```{r}
+formulas_2 <- generate_formulas(p = 2, x_vars = pred_var, y_var = "Salary")
+str(formulas_2)
+```
+
+Use a for loop 
+```{r}
+answer = numeric()
+for (i in formulas_2) {
+  i_formula <- as.formula(i)
+  lm_mse_result <- lm_mse(i_formula, baseball_train[1:100, ], baseball_train[101:131, ])
+  answer[i] <- lm_mse_result
+}
+min(answer)
+formulas_2[match(min(answer),answer)]
+```
+
+Now I will do the same for 3 predictors
+
+
+```{r}
+formulas_3 <- generate_formulas(p = 3, x_vars = pred_var, y_var = "Salary")
+str(formulas_3)
+```
+For the out-of-sample MSE I will use only the training dataset: baseball_train (131 observations) and I will split it into two: my training set will be baseball_train[1:100, ] and  my validation set (unseen data) will be baseball_train[101:131, ] 
+
+
+Use a for loop 
+```{r}
+answer = numeric()
+for (i in formulas_3) {
+  i_formula <- as.formula(i)
+  lm_mse_result <- lm_mse(i_formula, baseball_train[1:100, ], baseball_train[101:131, ])
+  answer[i] <- lm_mse_result
+}
+min(answer)
+formulas_3[match(min(answer),answer)]
+```
+
+Same for 4 predictors 
+
+
+```{r}
+formulas_4 <- generate_formulas(p = 4, x_vars = pred_var, y_var = "Salary")
+str(formulas_4)
+```
+
+Use a for loop 
+```{r}
+answer = numeric()
+for (i in formulas_4) {
+  i_formula <- as.formula(i)
+  lm_mse_result <- lm_mse(i_formula, baseball_train[1:100, ], baseball_train[101:131, ])
+  answer[i] <- lm_mse_result
+}
+min(answer)
+formulas_4[match(min(answer),answer)]
+```
+By comparing the out-of-sample MSE for 1,2,3,4 predictors I see that I get the smallest MSE from the model having 4 predictors.
+
+
+9. Calculate the test MSE for this model. Then, create a plot comparing predicted values (mapped to x position) versus observed values (mapped to y position) of baseball_test.
+
+
+```{r}
+test_result <- lm_mse(as.formula(formulas_4[match(min(answer),answer)]), baseball_train, baseball_test)
+cat("The test MSE for the above model will be:", test_result)
+```
+
+It is clear now, as suspected that my model is overfitting. This makes sense because the difference of the out-of-sample MSE using 2,3,4 predictors were very close and using 4 predictors doesn't have a big impact on improving the model.
+
+Let's have the plot, on the x-axis I will have the predicted values of my model and on the y-axis I will have the true Salary values.
+
+
+```{r}
+lm_ses <- lm(as.formula(formulas_4[match(min(answer),answer)]), baseball_train)
+y_pred <- predict(lm_ses, newdata = baseball_test)
+
+plot(y_pred, baseball_test$Salary)
+```
+
+## Regularisation with glmnet
+
+10. Read through the help file of glmnet. We are going to perform a linear regression with normal (gaussian) error terms. What format should our data be in?
+
+The x argument should be an input matrix, of dimension nobs x nvars; each row is an observation vector. Can be in sparse matrix format. The y argument is the response variable, which is a column vector. Also, it is given that the noise is Gaussian, $\epsilon \sim \mathcal{N}(0,1)$.
+
+11. First generate the input matrix using (a variation on) the following code. Remember that the “.” in a formula means “all available variables”. Make sure to check that this x_train looks like what you would expect.
+
+```{r}
+x_train <- model.matrix(Salary ~ ., data = baseball_train %>% select(-Splits))[, -1]
+View(x_train)
+```
+
+12. Using glmnet(), perform a LASSO regression with the generated x_train as the predictor matrix and Salary as the response variable. Set the lambda parameter of the penalty to 15. NB: Remove the intercept column from the x_matrix – glmnet adds an intercept internally.
+
+```{r}
+y_train <- baseball_train$Salary
+lasso_mod <- glmnet(x_train, y_train, alpha = 1, lambda = 15)
+lasso_mod
+```
+13. The coefficients for the variables are in the beta element of the list generated by the glmnet() function. Which variables have been selected? You may use the coef() function.
+
+```{r}
+coef(lasso_mod)
+```
+It can be seen from above what variables have been selected.
+
+14. Create a predicted versus observed plot for the model you generated with the baseball_valid data. Use the predict() function for this! What is the MSE on the validation set?
+
+```{r}
+x_valid <- model.matrix(Salary ~ ., data = baseball_valid %>% select(-Splits))[, -1]
+y_valid <- baseball_valid$Salary
+lasso_pred <- predict(lasso_mod, newx = x_valid)
+plot(lasso_pred, y_valid)
+mean((lasso_pred - y_valid)^2)
+```
+
+15. Fit a LASSO regression model on the same data as before, but now do not enter a specific lambda value. What is different about the object that is generated? Hint: use the coef() and plot() methods on the resulting object.
+
+```{r}
+grid <- 10^seq(10, -2, length=100)
+lasso_valid <- glmnet(x_valid, y_valid, alpha=1, lambda=grid)
+plot(lasso_valid)
+dim(coef(lasso_valid))
+lasso_valid$lambda[70]
+coef(lasso_valid)[,70]
+```
+
+16. Use the cv.glmnet function to determine the lambda value for which the out-of-sample MSE is lowest using 15-fold cross validation. As your dataset, you may use the training and validation sets bound together with bind_rows(). What is the best lambda value?
+
+```{r}
+set.seed(1)
+x_train_valid <- rbind(x_train,x_valid)
+y_train_valid <- c(y_train, y_valid)
+train <- sample(1:nrow(x_train_valid),nrow(x_train_valid)/2)
+test <- (-train)
+y_test <- y_train_valid[test]
+cv_out<-cv.glmnet(x_train_valid[train,], y_train_valid[train], alpha=1, nfolds = 15)
+bestlam<-cv_out$lambda.min
+bestlam
+```
+
+
+17. Try out the plot() method on this object. What do you see? What does this tell you about the bias-variance tradeoff?
+
+```{r}
+plot(cv_out)
+```
+It can be seen that for given $\lambda$ the MSE gets minimised. However as much as $\lambda$ increases, the MSE increases as well because of high-variance (overfitting).
+
+
+18. Use the predict() method directly on the object you just created to predict new salaries for the baseball players in the baseball_test dataset using the best lambda value you just created (hint: you need to use the s argument, look at ?predict.cv.glmnet for help). Create another predicted-observed scatter plot.
+
+
+```{r}
+x_test <- model.matrix(Salary ~ ., data = baseball_test %>% select(-Splits))[, -1]
+y_test <- baseball_test$Salary
+cv_pred <- predict(cv_out, s=bestlam, newx = x_test)
+plot(cv_pred, y_test)
+mean((cv_pred - y_test)^2)
+```
+
+19. Create a bar plot comparing the test set (baseball_test) MSE of (a) linear regression with all variables, (b) the best subset selection regression model we created, (c) LASSO with lambda set to 50, and (d) LASSO with cross-validated lambda. As training dataset, use the rows in both the baseball_train and baseball_valid
+
+```{r}
+# linear regression with all variables
+test <- as.data.frame(cbind(x_test, Salary = y_test))
+train_valid <- as.data.frame(cbind(x_train_valid, Salary = y_train_valid))
+linear_test <- lm(Salary~., data = train_valid)
+y_pred <- predict(linear_test, newdata = test)
+y_true <- test$Salary
+linear_mse <- (1/length(y_pred))*sum((y_true-y_pred)^2)
+linear_mse
+```
+
+
+```{r}
+# LASSO with lambda set to 50
+lasso_test <- glmnet(x_train_valid, y_train_valid, alpha = 1, lambda = 50)
+lasso_test_predict <- predict(lasso_test, newx = x_test)
+lasso_mse <- mean((lasso_test_predict - y_test)^2)
+lasso_mse
+```
+
+```{r}
+# LASSO with CV lambda
+cv_pred <- predict(cv_out, s=bestlam, newx = x_test)
+lasso_cv_lambda <- mean((cv_pred - y_test)^2)
+lasso_cv_lambda
+```
+```{r}
+# barchart with added parameters
+results <- c(linear_mse, lasso_mse, lasso_cv_lambda)
+barplot(results,
+main = "Comparing the test set (baseball_test) MSE ",
+xlab = "MSE",
+ylab = "Methods",
+names.arg = c("Linear", "LASSO", "CV"),
+col = "darkred",
+horiz = TRUE)
+```
+
