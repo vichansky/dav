@@ -1,0 +1,194 @@
+---
+title: "Assignment: Prediction"
+author: "David Vichansky"
+date: "22-01-2021"
+mainfont: Garamond
+fontsize: 12pt
+urlcolor: blue
+output: 
+  pdf_document:
+    latex_engine: xelatex
+---
+
+Load the packages.
+```{r load_packages}
+library(igraph)
+library(ggdendro)
+library(dendextend)
+library(ISLR)
+library(tidyverse)
+library(haven)
+library(MASS)
+library(class)
+library(rpart)
+library(rpart.plot)
+library(pROC)
+library(randomForest)
+library(tree)
+library(glmnet)
+```
+
+1. 
+
+```{r 1}
+## Load data set
+accident <- read.csv("data/accidents_2012_to_2014.csv", header = TRUE)
+```
+
+2.
+```{r 2}
+## See data sets column names
+colnames(accident)
+```
+
+3.
+```{r 3}
+## Filter mostly for numeric columns or ones that help with classification or prediction, i.e. 'police_force' is most likely an independent variable from accidents occuring
+accident <- as_tibble(accident)
+
+myvars <- names(accident) %in% c("Accident_Severity", 
+                                 "Number_of_Vehicles", 
+                                 "Number_of_Casualties",
+                                 "Day_of_Week",
+                                 #"Road_Type",
+                                 "Speed_limit",
+                                 #"Light_Conditions",
+                                 #"Weather_Conditions",
+                                 #"Road_Surface_Conditions",
+                                 "Urban_or_Rural_Area",
+                                 "Year")
+
+accident_new <- accident[myvars]
+```
+
+4.
+```{r 4}
+## Create 'test' and 'train' data sets
+#Split data set into training and test
+training_size <- floor(0.70 * nrow(accident_new))
+
+training_ind <- sample(seq_len(nrow(accident_new)), size = training_size, replace = FALSE)
+
+#Train data set
+accident_training <- accident_new[training_ind, ]
+
+#Test data set
+accident_test <- accident_new[-training_ind, ]
+```
+
+5.
+```{r 6}
+## Check data type
+sapply(accident_new, class)
+```
+
+6.
+```{r 6}
+# Fit lda model, i.e. calculate model parameters, using 'integer' varialbes only, we will use the 'factor' variables to map plots later
+accident_lda <- lda(Number_of_Vehicles ~ Accident_Severity + Number_of_Casualties + Speed_limit + Urban_or_Rural_Area + Year, data = accident_training)
+
+accident_lda
+```
+
+7.
+```{r 7}
+## Create a confusion matrix and assess model performance on the 'test' data set
+
+## Use test data set
+accident_pred <- predict(accident_lda, accident_test)
+
+## Now use the 'class' feature to assess performance
+lda_class <- accident_pred$class
+
+
+## Calculate the accuracy (diagonal entries) for this table
+conf_mat <- table(true = accident_test$Number_of_Vehicles, predicted = lda_class)
+
+lda_acc <- (sum(conf_mat[1,1] + conf_mat[2,2]) / sum(conf_mat))
+
+## Print 'accuracy' result (sum of diagonal entires/sum of all entries)
+paste(round(lda_acc*100, 2), "%", sep="")
+```
+
+We therefore observe a roughly 60% accuracy rate.
+
+8.
+```{r 8}
+## Create a classification tree using rpart() for the variable 'Number_of_Vehicles'
+
+##Use all the variables from the complete complete data set 'accident_new', as oppose to using the train/test split
+
+## Play around with using 'minsplit': “the minimum number of observations that must exist in a node in order for a split to be attempted” and 'minbucket': “the minimum number of observations in any terminal node”
+
+## Convert data set back to data frame
+accident_df <- data.frame(accident_new)
+
+accident_tree <- rpart(Number_of_Vehicles ~ . , data = accident_df, minsplit=4)
+
+##Accident_Severity + Number_of_Casualties + Speed_limit + Urban_or_Rural_Area + Year
+
+rpart.plot(accident_tree)
+```
+
+
+```{r 9}
+## LASSO regression
+
+## Create an array of different lambda functions ranging from 10^-1 and 10^2
+grid <- 10^seq(2,-1, length =100)
+
+## Remove the 'predictor' variable
+#x_train <- accident_training[, -2]
+
+#x_train <- model.matrix(Number_of_Vehicles ~ Accident_Severity + Number_of_Casualties + Speed_limit + Urban_or_Rural_Area + Year, data = accident_training)[, -2]
+
+#y_train <- accident_training$Number_of_Vehicles
+
+## Convert data frame to numeric
+y_train_df <- sapply(accident_training[, 2], as.numeric)
+
+accident_training_df <- sapply(accident_training[, -2], as.numeric)
+
+## Determine best lambda to perfrom Lasso regression with
+cv_out <- cv.glmnet(accident_training_df, y_train_df, alpha=1)
+
+## Take 'best' lambda
+lambda_min <- cv_out$lambda.min
+
+## Perfrom Lasso regression
+lasso_mod <- glmnet(accident_training_df, y_train_df, alpha=1, lambda=lambda_min)
+
+## Predict using LASSO regression
+lasso_coef <- predict(lasso_mod, type="coefficients", s=lambda_min)
+
+lasso_coef
+```
+
+We observe that the variables with the largest 'impact' are 'Accident_Severity', 'Number_of_Casualties' and 'Urban_or_Rural_Area'. 
+
+```{r 10}
+## Perfrom a second linear discriminant analysis model using the formula: 'Accident_Severity + Number_of_Casualties + Urban_or_Rural_Area', creating a second confusion matrix and assessing difference in 'accuracy'
+
+accident_lda2 <- lda(Number_of_Vehicles ~ Accident_Severity + Number_of_Casualties + Urban_or_Rural_Area, data = accident_training)
+
+
+## Use test data set
+accident_pred2 <- predict(accident_lda2, accident_test)
+
+## Now use the 'class' feature to assess performance
+lda_class2 <- accident_pred2$class
+
+
+## Calculate the accuracy (diagonal entries) for this table
+conf_mat2 <- table(true = accident_test$Number_of_Vehicles, predicted = lda_class2)
+
+lda_acc2 <- (sum(conf_mat2[1,1] + conf_mat2[2,2]) / sum(conf_mat2))
+
+## Print 'accuracy' result (sum of diagonal entires/sum of all entries)
+paste(round(lda_acc2*100, 2), "%", sep="")
+```
+
+Sometimes there is improvement, but very marginal.
+
+
+
