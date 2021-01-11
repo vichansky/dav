@@ -1,7 +1,7 @@
 ---
-title: "Practical"
+title: "Practical: Supervised Learning - Regression II"
 author: "David Vichansky"
-date: "05-12-2020"
+date: "08-12-2020"
 mainfont: Garamond
 fontsize: 12pt
 urlcolor: blue
@@ -30,14 +30,35 @@ Using 'nrow()' gives us back 263 baseball players in the dataset.
 
 2. Create baseball_train (50%), baseball_valid (30%), and baseball_test (20%) datasets.
 ```{r 2}
-baseball_train <- Hitters %>%
-                    sample_frac(0.5)
+#Set seed to make your partition reproducible
+set.seed(123)
+#Create train dataset
+train_size <- floor(0.50 * nrow(Hitters))
 
-baseball_valid <- Hitters %>%
-                    sample_frac(0.3)
+train_ind <- sample(seq_len(nrow(Hitters)), size = train_size, replace = FALSE)
 
-baseball_test <- Hitters %>%
-                    sample_frac(0.2)
+baseball_train <- Hitters[train_ind, ]
+
+#Create validate dataset
+val_test <- Hitters[-train_ind, ]
+
+val_size <- floor(0.3 * nrow(val_test))
+
+val_ind <- sample(seq_len(nrow(val_test)), size = val_size, replace = FALSE)
+
+baseball_valid <- val_test[val_ind, ]
+
+#Create test dataset
+baseball_test <- val_test[-val_ind, ]
+
+#baseball_train <- Hitters %>%
+#                    sample_frac(0.5, replace=FALSE)
+#
+#baseball_valid <- Hitters %>%
+#                    sample_frac(0.3, replace=FALSE)
+#
+#baseball_test <- Hitters %>%
+#                    sample_frac(0.2, replace=FALSE)
 ```
 
 3. Create a function called lm_mse() with as inputs (1) a formula, (2) a training dataset, and (3) a test dataset which outputs the mse on the test dataset for predictions from a linear model.
@@ -114,7 +135,7 @@ length(formulas)
 Thus indeed our 'formulas' variable contains 969 inside of it.
 
 7. Use a for loop to find the best set of 3 predictors in the Hitters dataset based on MSE. Use the baseball_train and baseball_valid datasets.
-```{r 7}
+```{r 7, results="hide"}
 #Initialise some vector to store values
 a <- numeric()
 
@@ -132,7 +153,7 @@ formulas[min_index]
 ```
 
 8. Do the same for 1, 2 and 4 predictors. Now select the best model with 1, 2, 3, or 4 predictors in terms of its out-of-sample MSE.
-```{r 8}
+```{r 8, results="hide"}
 formulas1 <- generate_formulas(1, column_names, c("Salary"))
 formulas2 <- generate_formulas(2, column_names, c("Salary"))
 formulas4 <- generate_formulas(4, column_names, c("Salary"))
@@ -245,7 +266,7 @@ mse
 ```
 
 15. Fit a LASSO regression model on the same data as before, but now do not enter a specific lambda value. What is different about the object that is generated? Hint: use the coef() and plot() methods on the resulting object.
-```{r 15}
+```{r 15, results="hide"}
 #Create an array of different lambda functions ranging from 10^-1 and 10^2
 grid = 10^seq(2,-1, length =100)
 
