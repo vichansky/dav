@@ -1,0 +1,144 @@
+---
+title: "Assignment Prediction Model"
+author: "Manousos Emmmanouil Theodosiou [6686311], Group: GG Force"
+date: "11-01-2021"
+output:
+  html_document:
+    df_print: paged
+  pdf_document:
+    latex_engine: pdflatex
+fontsize: 12pt
+urlcolor: blue
+mainfont: Arial
+---
+
+```{r}
+library(MASS)
+library(class)
+library(ISLR)
+library(tidyverse)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+```
+
+Load the dataset "accidents_2012_to_2014.csv"
+
+```{r}
+accidents <-
+  read_csv("accidents_2012_to_2014.csv") 
+#View(accidents)
+
+#distinct(accidents, Road_Type)
+#distinct(accidents, Weather_Conditions)
+#distinct(accidents, Light_Conditions)
+#distinct(accidents, Road_Surface_Conditions)
+#distinct(accidents, Special_Conditions_at_Site)
+#distinct(accidents, Carriageway_Hazards)
+```
+
+By looking at the dataset it can be seen that in 2012-2014 the most accidents occur on Saturday whereas the least number of accidents take place on Monday. (1 is Monday, 2 is Tuesday, etc). 
+```{r}
+accidents %>% 
+  group_by(Day_of_Week) %>% 
+  summarize(total_accidents=n_distinct(Accident_Index)) %>%
+    ggplot(aes(x=Day_of_Week, y=total_accidents)) +
+    geom_bar(stat="identity", fill="light seagreen")+
+    geom_text(aes(label=total_accidents), vjust=1.6, color="white", size=3.5)+
+    theme_minimal()
+```
+
+We can also visualise the number of accidents by hour. We can see that most accidents take place around 5pm and 8am. This could make sense since people having 9 to 5 jobs are more likely to have an accident on their way to or from their jobs. 
+
+```{r}
+accidents %>% 
+  mutate(time_slot = as.numeric(substr(Time,0,2))) %>% 
+  group_by(time_slot) %>% 
+  summarize(total_accidents=n_distinct(Accident_Index)) %>%
+    ggplot(aes(x=time_slot, y=total_accidents)) +
+    geom_bar(stat="identity", fill="light seagreen")+
+    geom_text(aes(label=total_accidents), vjust=1.6, color="black", size=3)+
+    scale_x_continuous(breaks = round(seq(0, 24, by = 2),0)) +
+    ggtitle("Total Accidents by Hours") +
+    xlab("Hours") + ylab("Total Accidents")+
+    theme(plot.title = element_text(hjust = 0.5), panel.background = element_blank())
+```
+Here, we will analyse the probability of having an accident (1 for Fatal, 2 for Serious, 3 for Slight) in a given hour.
+
+```{r}
+accidents_time <- 
+  accidents %>% 
+  mutate(time_slot = as.numeric(substr(Time,0,2)))
+
+accidents_time_severity <- table(accidents_time$time_slot, accidents_time$Accident_Severity)
+prop.table(accidents_time_severity,1)
+```
+
+```{r}
+View(accidents_time)
+```
+
+
+Now we will choose only the relevant predictors for the response variable Accident_Severity and make a dataframe.
+```{r}
+variables <- names(accidents_time) %in% c("Accident_Severity", 
+                                 "Number_of_Vehicles", 
+                                 "Number_of_Casualties",
+                                 "Day_of_Week",
+                                 "time_slot",
+                                 "Road_Type",
+                                 "Speed_limit",
+                                 "Light_Conditions",
+                                 "Weather_Conditions",
+                                 "Road_Surface_Conditions"
+                                 )
+
+accidents_df <- data.frame(accidents_time[variables])
+View(accidents_df)
+```
+
+Check the type of each column by running the sapply() function.
+
+```{r}
+sapply(accidents_df, class)
+```
+
+Make classification trees using the rpart() function.
+
+Using all predictors:
+```{r}
+set.seed(1)
+accidents_tree_mod <- rpart(Accident_Severity ~ ., data = accidents_df, 
+                            control=rpart.control(minsplit=10, cp=0.001))
+rpart.plot(accidents_tree_mod)
+```
+
+Using Accident_Severity ~ Road_Type + Light_Conditions + Weather_Conditions + Road_Surface_Conditions:
+
+```{r}
+set.seed(1)
+accidents_tree_mod_1 <- rpart(Accident_Severity ~ Road_Type + Light_Conditions
+                              + Weather_Conditions + Road_Surface_Conditions,
+                              data = accidents_df, 
+                              control=rpart.control(minsplit=10, cp=0.001))
+rpart.plot(accidents_tree_mod_1)
+```
+
+
+## Random Forest for classification (RUNS OUT OF MEMORY)
+
+```{r}
+#accidents_rf <- randomForest(Accident_Severity ~ ., data = accidents_df, importance = TRUE)
+#accidents_rf
+```
+
+Importance
+```{r}
+#importance(accidents_rf)
+```
+
+Plot importance
+```{r}
+#varImpPlot(accidents_rf)
+```
+
