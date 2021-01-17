@@ -1,0 +1,322 @@
+---
+title: "Assignment Prediction Model"
+author: "Manousos Emmmanouil Theodosiou [6686311], Group: GG Force"
+date: "11-01-2021"
+output:
+  html_document:
+    df_print: paged
+  pdf_document:
+    latex_engine: pdflatex
+fontsize: 12pt
+urlcolor: blue
+mainfont: Arial
+---
+
+```{r}
+library(MASS)
+library(class)
+library(ISLR)
+library(tidyverse)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+```
+
+Load the dataset "accidents_2012_to_2014.csv"
+
+```{r}
+accidents <-
+  read_csv("accidents_2012_to_2014.csv") 
+#View(accidents)
+
+#distinct(accidents, Road_Type)
+#distinct(accidents, Weather_Conditions)
+#distinct(accidents, Light_Conditions)
+#distinct(accidents, Road_Surface_Conditions)
+#distinct(accidents, Special_Conditions_at_Site)
+#distinct(accidents, Carriageway_Hazards)
+```
+
+# Introduction and Description of the Data set
+
+For this assignment we have used a dataset of UK Traffic Accidents found on kaggle. (https://www.kaggle.com/daveianhickey/2000-16-traffic-flow-england-scotland-wales/data?select=accidents_2012_to_2014.csv). Given the size of the dataset  (over 600 MB)  we decided to focus only on the timeframe 2012 to 2014. This still gives us over 450.000 data entries to work with. The data is very well structured and requires no dropping of data due to incomplete records. 
+The data set contains information coming from police reports on major car accidents throughout the UK. In all there are 33 columns containing location information (coordinates, police force and administrative area), date information (date, time, day of the week, year), information on the road where the accident took place (weather, type of road, overpasses, junctions) and the severity of the accident (severity, casualties).   Further descriptions for the columns can be found in the file 7752_road-accident-safety-data-guide.xls.
+Given this breadth of ordinal, categorical and numerical information, there are many different questions that can be looked into.  We have, however, focused on predicting the accident severity based on a combination of the predictor variables. Given the large amount of data it should also be possible to split the data set into many individual sets and tune the parameters of the given predictions. 
+
+
+## Exploration
+
+
+
+
+
+By looking at the dataset it can be seen that in 2012-2014 the most accidents occur on Saturday whereas the least number of accidents take place on Monday. (1 is Monday, 2 is Tuesday, etc). 
+```{r}
+accidents %>% 
+  group_by(Day_of_Week) %>% 
+  summarize(total_accidents=n_distinct(Accident_Index)) %>%
+    ggplot(aes(x=Day_of_Week, y=total_accidents)) +
+    geom_bar(stat="identity", fill="light seagreen")+
+    geom_text(aes(label=total_accidents), vjust=1.6, color="white", size=3.5)+
+    theme_minimal()
+```
+
+We can also visualise the number of accidents by hour. We can see that most accidents take place around 5pm and 8am. This could make sense since people having 9 to 5 jobs are more likely to have an accident on their way to or from their jobs. 
+
+```{r}
+accidents %>% 
+  mutate(time_slot = as.numeric(substr(Time,0,2))) %>% 
+  group_by(time_slot) %>% 
+  summarize(total_accidents=n_distinct(Accident_Index)) %>%
+    ggplot(aes(x=time_slot, y=total_accidents)) +
+    geom_bar(stat="identity", fill="light seagreen")+
+    geom_text(aes(label=total_accidents), vjust=1.6, color="black", size=3)+
+    scale_x_continuous(breaks = round(seq(0, 24, by = 2),0)) +
+    ggtitle("Total Accidents by Hours") +
+    xlab("Hours") + ylab("Total Accidents")+
+    theme(plot.title = element_text(hjust = 0.5), panel.background = element_blank())
+```
+
+Here, we will analyse the probability of having an accident (1 for Fatal, 2 for Serious, 3 for Slight) in a given hour.
+
+```{r}
+accidents_time <- 
+  accidents %>% 
+  mutate(time_slot = as.numeric(substr(Time,0,2)))
+
+accidents_time_severity <- table(accidents_time$time_slot, accidents_time$Accident_Severity)
+prop.table(accidents_time_severity,1)
+```
+
+```{r}
+View(accidents_time)
+```
+
+
+Now we will choose only the relevant predictors for the response variable Accident_Severity and make a dataframe.
+
+```{r}
+variables <- names(accidents_time) %in% c("Accident_Severity", 
+                                 "Number_of_Vehicles", 
+                                 "Number_of_Casualties",
+                                 "Day_of_Week",
+                                 "time_slot",
+                                 "Road_Type",
+                                 "Speed_limit",
+                                 "Light_Conditions",
+                                 "Weather_Conditions",
+                                 "Road_Surface_Conditions"
+                                 )
+
+accident_new <- data.frame(accidents_time[variables])
+```
+
+
+
+Initially we ran all our models on the unfiltered data, but soon it became clear that the classes are very disproportionately distributed as can be seen in the graph below.
+
+Prior probabilities of groups:
+         1          2          3 
+0.01141174 0.14371515 0.84487311
+
+
+
+```{r}
+ggplot(accident_new, aes(x=Accident_Severity)) + geom_histogram()
+```
+
+We decided then to downsample to make classes more equal. The new distribution:
+
+Prior probabilities of groups:
+        1         2         3 
+0.1666667 0.3333333 0.5000000 
+
+
+
+```{r}
+# Downsampling to make classes equally largge
+
+
+sev_1 <- accident_new %>% 
+  filter( Accident_Severity == 1)
+
+sev_2 <- accident_new %>% 
+  filter( Accident_Severity == 2)
+
+sev_3 <- accident_new %>% 
+  filter( Accident_Severity == 3)
+
+dim(sev_1)
+dim(sev_2)
+dim(sev_3)
+
+set.seed(5)
+
+df_balanced <- rbind(sev_1, sample_n(sev_2, 2 * nrow(sev_1)), sample_n(sev_3,  3 * nrow(sev_1)))
+accidents_df<- df_balanced
+
+```
+
+
+
+```{r}
+ggplot(accidents_df, aes(x=Accident_Severity)) + geom_histogram()
+```
+
+We experimented with different distributions. Such as sampling all of the classes equally, or not sampling at all. However, when sampling equally, the accuraccy suffers immensely, as most of the observations will be of class 3, but will be missclassified due to the dissproportionate weight on class 1. If we don't rebalance at all, the accuraccy goes up very high, however, this is only due to the unequal distribution. A 'dumb classifier' that puts everything in class 3 would already have an accuracy of 84%. Yet, since class one means fatal accidents, it's important that these don't get underpredicted since these have the highest impact. It is for this reason that we shifted the distribution to a 1:2:3 balancing, so that this class does not get underpredicted.
+
+
+Check the type of each column by running the sapply() function. Changed Accident_Severity to factor, making the tree plots behave better.
+
+```{r}
+
+
+accidents_df$Accident_Severity <- as.factor(accidents_df$Accident_Severity)  # change to factor to make trees nicer
+
+sapply(accidents_df, class)
+```
+
+Make classification trees using the rpart() function.
+
+Using all predictors:
+```{r}
+set.seed(1)
+accidents_tree_mod <- rpart(Accident_Severity ~ ., data = accidents_df, 
+                            control=rpart.control(minsplit=20, cp=0.005))
+rpart.plot(accidents_tree_mod)
+```
+
+The classifcationt tree above is well behaved and setting the minsplit and cp values as they are, it is still possible to read the chart as well as making sure not to overfit on the training data. 
+
+
+## Random Forest for classification
+
+In addition to the tree classifier we want to fit a random forest on all of the chosen variables.
+
+```{r}
+accidents_rf <- randomForest(Accident_Severity ~ ., data = accidents_df, importance = TRUE, na.action = na.exclude)
+accidents_rf
+```
+
+Importance
+```{r}
+importance(accidents_rf)
+```
+
+Plot importance
+```{r}
+varImpPlot(accidents_rf)
+```
+
+The charts above indicate that ... [ INTERPRETATION] Discuss gini index etc.?
+
+
+Next we will look at the prediction accuracy for the training data set:
+
+
+```{r}
+prediction_rf_train <- predict(accidents_rf, newdata = accidents_df, na.action = na.exclude)
+
+
+conf_rf <- table(predicted = prediction_rf_train, true = accidents_df$Accident_Severity)
+
+conf_rf
+
+
+acc <- (sum(conf_rf[1,1] + conf_rf[2,2] + conf_rf[3,3]) / sum(conf_rf))
+
+## Print 'accuracy' result (sum of diagonal entires/sum of all entries)
+paste(round(acc*100, 2), "%", sep="")
+```
+
+The accuracy rate is good considering the unbalanced data sets and the compromises we had to make. Class 1 is largely classified correctly, but better results would cause a lower accuracy, as the other classes will suffer considerably.
+
+
+
+Now we look at all of the data:
+
+```{r}
+prediction_rf_test <- predict(accidents_rf, newdata = accident_new, na.action = na.exclude)
+
+
+conf_test_rf <- table(predicted = prediction_rf_test, true = accident_new$Accident_Severity)
+
+conf_test_rf
+
+
+acc <- (sum(conf_test_rf[1,1] + conf_test_rf[2,2] + conf_test_rf[3,3]) / sum(conf_test_rf))
+
+## Print 'accuracy' result (sum of diagonal entires/sum of all entries)
+paste(round(acc*100, 2), "%", sep="")
+```
+
+Interestingly, the accuracy for the whole data set is actually higher, given the data imbalance. 
+
+
+## LDA Analysis
+
+In addition to the random forest, we also take a look at an LDA model to predict the severity. Here we picked out the most important factors to base our formula on:
+
+
+```{r}
+# Fit lda model, i.e. calculate model parameters, using 'integer' variables only, we will use the 'factor' variables to map plots later
+accident_lda <- lda(Accident_Severity ~ Number_of_Vehicles + Number_of_Casualties + Day_of_Week + Speed_limit + Light_Conditions + Weather_Conditions, data = accidents_df)
+
+
+accident_lda
+```
+
+7.
+```{r}
+## Create a confusion matrix and assess model performance on the 'test' data set
+
+## Use test data set
+accident_pred <- predict(accident_lda, accidents_df)
+
+## Now use the 'class' feature to assess performance
+lda_class <- accident_pred$class
+
+
+## Calculate the accuracy (diagonal entries) for this table
+conf_mat <- table(predicted = lda_class, true = accidents_df$Accident_Severity)
+
+conf_mat
+
+lda_acc <- (sum(conf_mat[1,1] + conf_mat[2,2] + conf_mat[3,3]) / sum(conf_mat))
+
+## Print 'accuracy' result (sum of diagonal entires/sum of all entries)
+paste(round(lda_acc*100, 2), "%", sep="")
+```
+
+Compare with full data set:
+
+```{r}
+## Create a confusion matrix and assess model performance on the 'test' data set
+
+## Use test data set
+accident_pred <- predict(accident_lda, accident_new)
+
+## Now use the 'class' feature to assess performance
+lda_class <- accident_pred$class
+
+
+## Calculate the accuracy (diagonal entries) for this table
+conf_mat <- table(predicted = lda_class, true = accident_new$Accident_Severity)
+
+conf_mat
+
+lda_acc <- (sum(conf_mat[1,1] + conf_mat[2,2] + conf_mat[3,3]) / sum(conf_mat))
+
+## Print 'accuracy' result (sum of diagonal entires/sum of all entries)
+paste(round(lda_acc*100, 2), "%", sep="")
+```
+
+
+## Conclusion
+
+
+
+
+
+
+

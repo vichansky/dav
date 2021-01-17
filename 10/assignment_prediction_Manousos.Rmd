@@ -142,3 +142,13 @@ Plot importance
 #varImpPlot(accidents_rf)
 ```
 
+
+
+###
+
+```{r}
+
+```
+
+
+
