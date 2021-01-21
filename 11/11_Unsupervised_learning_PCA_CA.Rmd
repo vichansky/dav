@@ -1,0 +1,192 @@
+---
+title: "Unsupervised Learning PCA & CA"
+author: "Manousos Emmanouil Theodosiou [6686311]"
+date: "14-12-2020"
+output:
+  pdf_document:
+    latex_engine: pdflatex
+  html_document:
+    df_print: paged
+fontsize: 12pt
+urlcolor: blue
+mainfont: Arial
+---
+
+# Unsupervised learning: PCA & CA
+
+## Introduction
+
+Load packages
+```{r}
+library(ISLR)
+library(tidyverse)
+library(ca)
+```
+
+## Principal Component Analysis
+
+1. Load the questionnaire dataset and explore it.
+```{r}
+questionnnaire <- read_csv("data/questionnaire.csv")
+# Check the type of every variable in the dataset
+sapply(questionnnaire, class)
+# Check the dimensions of the dataset
+dim(questionnnaire)
+# Check some fundamental properties of the dataset (check the mean, 1st and 3rd quartile)
+summary(questionnnaire)
+# View the dataset
+View(questionnnaire)
+```
+
+2. Create a data frame with only the questionnaire columns, and standardise the dataset
+
+```{r}
+df <- data.frame(questionnnaire)[-21]
+scaled_df <- scale(df)
+
+# check that we get mean of 0 and sd of 1
+colMeans(scaled_df)  # faster version of apply(scaled_df, 2, mean)
+apply(scaled_df, 2, sd)
+```
+
+3. Use the prcomp() function to create a principal components analysis for the scaled dataset. Save the result as pca_mod.
+
+```{r}
+set.seed(1)
+pca_mod <- prcomp(scaled_df)
+```
+
+4. Are the first two principal components successful in explaining variance in the dataset? How many components do we need to explain 50% of the variation in the dataset?
+
+Get the standard deviation for each principal component
+```{r}
+pca_mod$sdev
+```
+
+Now get the variance by squaring the standard deviation
+```{r}
+pca_var <- pca_mod$sdev^2
+pca_var
+```
+
+Compute PVE by dividing the variance explained by each principal component and dividing it by the total variance explained by all principal components
+```{r}
+pve <- pca_var/sum(pca_var)
+pve
+```
+
+In this way it can be seen that the first two principal components explain the 34.6% of the variance in the data. In order to explain the 50% of the variance in the dataset we will need the first 5 principal components which explain the 54.3% of the variance in the dataset.
+
+
+5. Which original variable is most related to the first principal component? Which is the least relevant for the first principal component?
+
+At first we need to calculate the rotation matrix which gives the principal component loadings. Each column of pca_mod$rotation contains the corresponding principal component loading vector. In our case we will look at the first column PC1 as it corresponds the first principal component loading vector
+```{r}
+pca_mod$rotation
+```
+
+Hence, the variable most relevant to the first principal component is the one with the highest coefficient: BIGF13 wi th coefficient 0.31827888. Similarly, the least relevant is EMPATHY4 with coefficient -0.02768959.
+
+6. Create a scatter plot of the first two principal components. Map the sex of the respondents to the colour aesthetic. Is there a sex difference?
+
+As it can be seen from the scatter plot there is no sex difference.
+```{r}
+library(ggfortify)
+
+autoplot(pca_mod, data = questionnnaire, colour = 'sex',
+         loadings = TRUE, loadings.colour = 'blue',
+         loadings.label = TRUE, loadings.label.size = 3)
+```
+
+## Correspondence analysis
+
+7. Load the preprocessed songs_ca dataset into the environment from the data/songs_ca.RData file.
+
+```{r}
+load("data/songs_ca.RData")
+head(songs_ca)
+```
+
+8. Use the ca() function from the ca package to create a correspondence analysis object.
+
+```{r}
+ca_mod <- ca(songs_ca)
+ca_mod
+```
+
+9. Use the summary() function on this object. What can you conclude about the first two inertias? What can you say about the word “love” in this dataset?
+
+```{r}
+summary(ca_mod)
+```
+
+From the two first inertias cover almost the 60% of the total variance in the dataset. The word "love" has small mass which is the weight and is the marginal sum of that column divided by the grand total of the table. Also, it has the fourth highest inertia after "you", "no" and "baby". The total quality (qlt) is the sum of the squared correlations over the two dimensions (k=1, k=2) which is relatively low in comparison with other words. Last, the correlation value (cor) is used to interpret each component in terms of its contribution to inertia. Values close to 1000 indicate that the component accounts for a high amount of inertia. Values close to 0 indicate that the component contributes little to inertia, as it does in the case of the word "love".
+
+10. Recreate using ggplot the biplot that results from the plot() method on this object. Hint: for this, you can use the rowcoord and colcoord elements of the object.
+
+The biplot made by using the plot() function on ca_mod object.
+```{r}
+plot(ca_mod)
+```
+
+Let's try to recreate this by using 
+
+```{r}
+df <- data.frame(dim1 = c(ca_mod$colcoord[,1],ca_mod$rowcoord[,1]), 
+dim2 = c(ca_mod$colcoord[,2],ca_mod$rowcoord[,2]),
+type=c(rep(1,length(ca_mod$colcoord[,1])),rep(2,length(ca_mod$rowcoord[,1]))))
+
+library(ggplot2)
+qplot(dim1,dim2,data=df,colour=factor(type)) +
+  geom_text(aes(label=rownames(df)),size=3) +
+  scale_colour_viridis_d() + 
+  theme_minimal() +
+  labs(title = "Biplot using ggplot", y = "Dimension 2", x = "Dimension 1")
+```
+
+
+11. What can you conclude about Exo and Janis Joplin? Can you come up with reasonable explanations for this?
+
+Words as "baby", "no", "hey" seem to be more related to Janis Joplin since the context of most of her songs involve love and romance. Exo is a boy band which also includes words that refer to love, such as "together". It seems from this biplot that the Dimension 2 has something to do with love, relationships, romance etc.
+
+12. In which ways would the plot be different if we would use different artists?
+
+If we didn't include values such as Exo or Janis Joplin, these values wouldn't have the major influence, on words such as "baby", "no", "hey", "together", that the have right now in the biplot. In that case we would see for example that the artist Vangelis is much more different musically from Iggy Pop. In other words, the main cluster in the middle ideally would break into smaller distinct clusters so that their differences are more distinguishable.
+
+## Final assignment: High-dimensional PCA using SVD
+
+13. Load the dataset “data/corn.RData” using the function load().
+
+```{r}
+load("data/corn.RData")
+View(corn)
+```
+
+Here is a plot of wavelength versus transmittance, with one line for each of the 80 corn samples:
+
+```{r}
+t(corn[, -c(1:4)]) %>% 
+  as_tibble %>% 
+  gather(key = corn, value = signal) %>% 
+  mutate(wavelength = rep(seq(1100, 2498, 2), 80)) %>% 
+  ggplot(aes(x = wavelength, y = signal, colour = corn)) +
+  geom_line() +
+  theme_minimal() +
+  scale_colour_viridis_d(guide = "none") +
+  labs(x = "Wavelength (nm)",
+       y = "Transmittance",
+       title = "NIR Spectroscopy of 80 corn samples")
+```
+
+14. Use the svd() function to run a principal components analysis on the spectroscopy part of the corn dataset. Save the PC scores and plot the first two principal components. Create four plots, each mapping one of the four properties to the colour aesthetic. Which of the properties relate most to the first two principal components? Base your answer on the plots only. Then, do the same thing for PCs 5 and 6.
+
+```{r}
+s <- svd(corn[, -c(1:4)])
+D <- diag(s$d)
+X <- s$u %*% D %*% t(s$v) #  X = U D V'
+D1 <- t(s$u) %*% X %*% s$v #  D = U' X V
+
+```
+
+
+
